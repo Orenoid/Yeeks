@@ -1,32 +1,33 @@
+English | [简体中文](./README_CN.md)
+
 # Yeeks
 
-一个以周为单位展示全年时间的可视化工具。
 
-[English](./README_EN.md) | 简体中文
+Your year in weeks.
 
-## 使用方法
+## Getting Started
 
-1. 安装依赖：
+1. Install dependencies:
 ```bash
 npm install
-# 或
+# or
 yarn
 ```
 
-2. 启动开发服务器：
+2. Start the development server:
 ```bash
 npm run dev
-# 或
+# or
 yarn dev
 ```
 
-3. 构建生产版本：
+3. Build for production:
 ```bash
 npm run build
-# 或
+# or
 yarn build
 ```
 
-## 许可证
+## License
 
 MIT
