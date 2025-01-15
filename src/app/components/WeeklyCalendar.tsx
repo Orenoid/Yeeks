@@ -8,8 +8,112 @@ const zenMaru = Zen_Maru_Gothic({
   weight: ['400', '500', '700'],
 });
 
+interface WeekNote {
+  content: string;
+  lastModified: Date;
+}
+
+interface WeekData {
+  weekNumber: number;
+  startDate: Date;
+  endDate: Date;
+  note?: WeekNote;
+}
+
 interface WeeklyCalendarProps {
   year?: number;
+}
+
+interface WeekModalProps {
+  weekData: WeekData | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (content: string) => void;
+}
+
+function WeekModal({ weekData, isOpen, onClose, onSave }: WeekModalProps) {
+  const [content, setContent] = useState('');
+  const panelRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (weekData?.note) {
+      setContent(weekData.note.content);
+    } else {
+      setContent('');
+    }
+  }, [weekData]);
+
+  // 自动获取焦点
+  useEffect(() => {
+    if (isOpen && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // 自动保存功能
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (weekData && content !== weekData.note?.content) {
+        onSave(content);
+      }
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
+  }, [content, weekData, onSave]);
+
+  if (!isOpen || !weekData) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* 背景遮罩 */}
+      <div 
+        className="absolute inset-0 bg-black/5 backdrop-blur-[2px] transition-opacity"
+        onClick={onClose}
+      />
+      
+      {/* 侧边面板 */}
+      <div 
+        ref={panelRef}
+        className={`
+          w-[calc(min(100%-2rem,600px))] bg-white h-full shadow-lg
+          fixed right-0 top-0
+          transform transition-transform duration-300
+          ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+          flex flex-col
+        `}
+      >
+        {/* 头部 */}
+        <div className="flex items-center justify-between p-6">
+          <div>
+            <div className="text-2xl font-bold mb-1">
+              Week {weekData.weekNumber}
+            </div>
+            <div className="text-gray-500">
+              {format(weekData.startDate, 'M.d', { locale: zhCN })} - {format(weekData.endDate, 'M.d', { locale: zhCN })}
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 内容区 */}
+        <textarea
+          ref={textareaRef}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Write down what you want to do or what you did this week"
+          className="flex-1 w-full p-6 focus:outline-none resize-none"
+        />
+      </div>
+    </div>
+  );
 }
 
 function YearSelector({ value, onChange, currentYear }: { 
@@ -74,6 +178,9 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(initialYear || currentYear);
   const [weeks, setWeeks] = useState<Date[]>([]);
+  const [weekNotes, setWeekNotes] = useState<Record<string, WeekNote>>({});
+  const [selectedWeek, setSelectedWeek] = useState<WeekData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const today = startOfDay(new Date());
 
   useEffect(() => {
@@ -86,7 +193,43 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
     );
     
     setWeeks(weeksInYear);
+
+    // 从 localStorage 加载笔记
+    const storedNotes = localStorage.getItem(`weekNotes_${selectedYear}`);
+    if (storedNotes) {
+      setWeekNotes(JSON.parse(storedNotes));
+    } else {
+      setWeekNotes({});
+    }
   }, [selectedYear]);
+
+  const handleWeekClick = (weekStart: Date, weekNumber: number, displayStart: Date, displayEnd: Date) => {
+    const weekData: WeekData = {
+      weekNumber,
+      startDate: displayStart,
+      endDate: displayEnd,
+      note: weekNotes[`${weekNumber}`]
+    };
+    setSelectedWeek(weekData);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveNote = (content: string) => {
+    if (!selectedWeek) return;
+
+    const newNote: WeekNote = {
+      content,
+      lastModified: new Date()
+    };
+
+    const newWeekNotes = {
+      ...weekNotes,
+      [`${selectedWeek.weekNumber}`]: newNote
+    };
+
+    setWeekNotes(newWeekNotes);
+    localStorage.setItem(`weekNotes_${selectedYear}`, JSON.stringify(newWeekNotes));
+  };
 
   // 计算需要的行数
   const rowCount = Math.ceil(weeks.length / 7);
@@ -119,23 +262,20 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
                     const yearStart = startOfYear(new Date(selectedYear, 0, 1));
                     const yearEnd = endOfYear(new Date(selectedYear, 0, 1));
                     
-                    // 确保开始日期不早于年初
                     const displayStart = max([weekStart, yearStart]);
-                    // 确保结束日期不晚于年末
                     const displayEnd = min([addDays(weekStart, 6), yearEnd]);
-
-                    // 计算周数
                     const weekNumber = index + 1;
-
-                    // 计算是否为当前周
                     const isCurrentWeek = isWithinInterval(today, {
                       start: displayStart,
                       end: displayEnd
                     });
+                    const hasNote = weekNotes[`${weekNumber}`]?.content;
+                    const isSelected = selectedWeek?.weekNumber === weekNumber && isModalOpen;
                     
                     return (
                       <td 
                         key={index}
+                        onClick={() => handleWeekClick(weekStart, weekNumber, displayStart, displayEnd)}
                         className={`
                           group relative
                           border border-gray-300
@@ -152,11 +292,12 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
                           transition-colors duration-200
                           cursor-pointer
                           p-0
+                          ${hasNote ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}
                         `}
                       >
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                           <div className={`
-                            opacity-0 group-hover:opacity-100 
+                            ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
                             transition-opacity duration-200 
                             text-center
                             w-full px-0.5
@@ -184,6 +325,12 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
           </table>
         </div>
       </div>
+      <WeekModal
+        weekData={selectedWeek}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveNote}
+      />
     </div>
   );
 } 
