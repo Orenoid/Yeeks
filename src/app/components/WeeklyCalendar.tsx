@@ -159,6 +159,7 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
                             opacity-0 group-hover:opacity-100 
                             transition-opacity duration-200 
                             text-center
+                            w-full px-0.5
                             ${isBefore(displayEnd, today) 
                               ? 'text-white' 
                               : isCurrentWeek
@@ -166,11 +167,11 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
                                 : 'text-gray-500'
                             }
                           `}>
-                            <div className="text-2xl font-bold mb-1">
+                            <div className="text-[min(5vw,1.25rem)] font-bold mb-0.5">
                               {weekNumber}
                             </div>
-                            <div className="text-xs">
-                              {format(displayStart, 'M.d', { locale: zhCN })} - {format(displayEnd, 'M.d', { locale: zhCN })}
+                            <div className="text-[min(2vw,0.7rem)] leading-none whitespace-nowrap">
+                              {format(displayStart, 'M.d', { locale: zhCN })}-{format(displayEnd, 'M.d', { locale: zhCN })}
                             </div>
                           </div>
                         </div>
