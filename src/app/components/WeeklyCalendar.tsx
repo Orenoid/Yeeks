@@ -108,7 +108,7 @@ function WeekModal({ weekData, isOpen, onClose, onSave }: WeekModalProps) {
           ref={textareaRef}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Write down what you want to do or what you did this week"
+          placeholder="Write down what you plan to do or what you did this week"
           className="flex-1 w-full p-6 focus:outline-none resize-none"
         />
       </div>
