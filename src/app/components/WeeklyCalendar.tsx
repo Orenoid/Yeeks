@@ -174,6 +174,134 @@ function YearSelector({ value, onChange, currentYear }: {
   );
 }
 
+function MenuDropdown({ weekNotes, selectedYear }: { weekNotes: Record<string, WeekNote>, selectedYear: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isRecapOpen, setIsRecapOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const currentWeekRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 自动滚动到当前周（仅当前年份）
+  useEffect(() => {
+    if (isRecapOpen && currentWeekRef.current && selectedYear === new Date().getFullYear()) {
+      currentWeekRef.current.scrollIntoView({ block: 'center' });
+    }
+  }, [isRecapOpen, selectedYear]);
+
+  const renderRecapContent = () => {
+    const today = startOfDay(new Date());
+    const currentYear = new Date().getFullYear();
+    const yearStart = startOfYear(new Date(selectedYear, 0, 1));
+    const yearEnd = endOfYear(new Date(selectedYear, 0, 1));
+    
+    const weeksInYear = eachWeekOfInterval(
+      { start: yearStart, end: yearEnd },
+      { locale: zhCN }
+    );
+
+    // 如果是当前年份，只显示到当前周；如果是过去的年份，显示全年
+    const weeksToShow = weeksInYear.filter(weekStart => {
+      if (selectedYear < currentYear) return true;
+      if (selectedYear > currentYear) return false;
+      return !isBefore(today, weekStart);
+    });
+
+    return weeksToShow.map((weekStart, index) => {
+      const weekNumber = index + 1;
+      const displayStart = max([weekStart, yearStart]);
+      const displayEnd = min([addDays(weekStart, 6), yearEnd]);
+      const isCurrentWeek = selectedYear === currentYear && isWithinInterval(today, { start: displayStart, end: displayEnd });
+      const note = weekNotes[`${weekNumber}`];
+
+      return (
+        <div 
+          key={weekNumber}
+          ref={isCurrentWeek ? currentWeekRef : null}
+          className="mb-8"
+        >
+          <div className="font-bold text-lg mb-1">Week {weekNumber}</div>
+          <div className="text-sm text-gray-500 mb-3">
+            {format(displayStart, 'M.d', { locale: zhCN })} - {format(displayEnd, 'M.d', { locale: zhCN })}
+          </div>
+          <div className="whitespace-pre-wrap">
+            {note?.content || (
+              <div className="text-gray-400 italic">
+                No records for this week
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    });
+  };
+
+  return (
+    <>
+      <div className="relative" ref={menuRef}>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+        >
+          <svg className="w-6 h-6 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="4" r="2" fill="currentColor" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
+            <circle cx="12" cy="20" r="2" fill="currentColor" />
+          </svg>
+        </button>
+        {isOpen && (
+          <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-100 py-2 min-w-[160px] z-10">
+            <button 
+              className="w-full px-4 py-2 text-left hover:bg-gray-100"
+              onClick={() => {
+                setIsRecapOpen(true);
+                setIsOpen(false);
+              }}
+            >
+              Recap
+            </button>
+          </div>
+        )}
+      </div>
+      {isRecapOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div 
+            className="absolute inset-0 bg-black/5 backdrop-blur-[2px] transition-opacity"
+            onClick={() => setIsRecapOpen(false)}
+          />
+          <div className="w-[calc(min(100%-2rem,600px))] bg-white h-full shadow-lg fixed right-0 top-0 flex flex-col">
+            <div className="flex items-center justify-between p-6">
+              <div className="text-2xl font-bold">
+                {selectedYear} Recap
+              </div>
+              <button 
+                onClick={() => setIsRecapOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {renderRecapContent()}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProps) {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(initialYear || currentYear);
@@ -238,7 +366,7 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
     <div className={`h-screen flex flex-col p-4 ${zenMaru.className}`}>
       <div className="mx-auto w-full max-w-[700px] flex flex-col h-full">
         <div className="flex-none mb-8">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-wide flex items-baseline gap-2">
                 <span>Yeeks</span>
@@ -250,6 +378,7 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
               </h1>
               <p className="text-sm text-gray-400 pl-1">Your year in weeks</p>
             </div>
+            <MenuDropdown weekNotes={weekNotes} selectedYear={selectedYear} />
           </div>
         </div>
         <div className="flex-1 flex items-start">
