@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { startOfYear, endOfYear, eachWeekOfInterval, isBefore, format, addDays, max, min, startOfDay, isWithinInterval } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Zen_Maru_Gothic } from 'next/font/google';
@@ -12,13 +12,73 @@ interface WeeklyCalendarProps {
   year?: number;
 }
 
-export default function WeeklyCalendar({ year = new Date().getFullYear() }: WeeklyCalendarProps) {
+function YearSelector({ value, onChange, currentYear }: { 
+  value: number;
+  onChange: (year: number) => void;
+  currentYear: number;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (selectorRef.current && !selectorRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={selectorRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="text-2xl bg-transparent focus:outline-none cursor-pointer flex items-center gap-1"
+      >
+        {value}
+        <svg
+          className={`w-4 h-4 transform transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-gray-100 py-3 min-w-[120px] z-10">
+          {Array.from({ length: 11 }, (_, i) => currentYear - 5 + i).map(year => (
+            <button
+              key={year}
+              onClick={() => {
+                onChange(year);
+                setIsOpen(false);
+              }}
+              className={`w-full px-6 py-2 text-left hover:bg-gray-100 ${
+                year === value ? 'bg-gray-100' : ''
+              }`}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProps) {
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(initialYear || currentYear);
   const [weeks, setWeeks] = useState<Date[]>([]);
   const today = startOfDay(new Date());
 
   useEffect(() => {
-    const yearStart = startOfYear(new Date(year, 0, 1));
-    const yearEnd = endOfYear(new Date(year, 0, 1));
+    const yearStart = startOfYear(new Date(selectedYear, 0, 1));
+    const yearEnd = endOfYear(new Date(selectedYear, 0, 1));
     
     const weeksInYear = eachWeekOfInterval(
       { start: yearStart, end: yearEnd },
@@ -26,7 +86,7 @@ export default function WeeklyCalendar({ year = new Date().getFullYear() }: Week
     );
     
     setWeeks(weeksInYear);
-  }, [year]);
+  }, [selectedYear]);
 
   // 计算需要的行数
   const rowCount = Math.ceil(weeks.length / 7);
@@ -35,12 +95,18 @@ export default function WeeklyCalendar({ year = new Date().getFullYear() }: Week
     <div className={`h-screen flex flex-col p-4 ${zenMaru.className}`}>
       <div className="mx-auto w-full max-w-[700px] flex flex-col h-full">
         <div className="flex-none mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-wide">
-              <span>Yeeks</span>
-              <span className="text-2xl ml-2">{year}</span>
-            </h1>
-            <p className="text-sm text-gray-400 pl-1">Your year in weeks</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-wide flex items-baseline gap-2">
+                <span>Yeeks</span>
+                <YearSelector
+                  value={selectedYear}
+                  onChange={setSelectedYear}
+                  currentYear={currentYear}
+                />
+              </h1>
+              <p className="text-sm text-gray-400 pl-1">Your year in weeks</p>
+            </div>
           </div>
         </div>
         <div className="flex-1 flex items-start">
@@ -50,8 +116,8 @@ export default function WeeklyCalendar({ year = new Date().getFullYear() }: Week
                 <tr key={rowIndex}>
                   {weeks.slice(rowIndex * 7, (rowIndex + 1) * 7).map((weekStart, colIndex) => {
                     const index = rowIndex * 7 + colIndex;
-                    const yearStart = startOfYear(new Date(year, 0, 1));
-                    const yearEnd = endOfYear(new Date(year, 0, 1));
+                    const yearStart = startOfYear(new Date(selectedYear, 0, 1));
+                    const yearEnd = endOfYear(new Date(selectedYear, 0, 1));
                     
                     // 确保开始日期不早于年初
                     const displayStart = max([weekStart, yearStart]);
