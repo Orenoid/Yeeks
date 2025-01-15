@@ -297,21 +297,23 @@ export default function WeeklyCalendar({ year: initialYear }: WeeklyCalendarProp
                       >
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                           <div className={`
-                            ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
-                            transition-opacity duration-200 
                             text-center
                             w-full px-0.5
                             ${isBefore(displayEnd, today) 
                               ? 'text-white' 
                               : isCurrentWeek
                                 ? 'text-gray-600'
-                                : 'text-gray-500'
+                                : 'text-gray-300 group-hover:text-gray-600'
                             }
                           `}>
                             <div className="text-[min(5vw,1.25rem)] font-bold mb-0.5">
                               {weekNumber}
                             </div>
-                            <div className="text-[min(2vw,0.7rem)] leading-none whitespace-nowrap">
+                            <div className={`
+                              text-[min(2vw,0.7rem)] leading-none whitespace-nowrap
+                              ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
+                              transition-opacity duration-200
+                            `}>
                               {format(displayStart, 'M.d', { locale: zhCN })}-{format(displayEnd, 'M.d', { locale: zhCN })}
                             </div>
                           </div>
